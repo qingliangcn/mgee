@@ -1,0 +1,214 @@
+http://blog.csdn.net/lawme/archive/2009/05/01/4141289.aspx
+
+Erlang 中文简体字 GB2312 转 unicode 的办法(1) 收藏
+这些天，一直在琢磨Erlang中文简体字转unicode的办法。想到过，用 port，C或Python外部模块；用erts，dict，array，但不仅都太烦琐，甚至没怎么看懂。
+编程需要考虑的两大问题：功能与效率。
+效率，不仅是程序运行效率，还有编程工作效率。
+代码越简单效率越高。用简单的工具和办法，显不出学术理论水平，所以，常见玩高深的。
+中文简体字转unicode，不是高深的问题，涉及的理论和多种解决方案，网上都能找到。
+需要的是，从中得到启发，想出在Erlang中适用的最简单的办法。
+还好，我找到了。
+一、在Erlang中使用编码转换表
+转码的办法有两类，一是用算法随机转换，它省空间费时间；二是查找事先建立的编码表，它省时间费空间。
+从实用的要求看，第二种办法比较好。
+这个码表结构应该怎样？这要看中文简体字编码和Erlang字符串的相关特点。
+中文简体字编码，这里只考虑GB2312，它已能满足太多需求了。它的特点是一个字由两个非ASCII码字节表示，如“中”的编码D6D0。
+Erlang的字符串就是整数列表，如“中”是[214,208]，unicode是[20013]。
+Erlang查询数据，有其内部特殊方法，不用数组下标之类。
+根据这些特点，确定使用Erlang的内建函数 put/2, get/1，如：
+put({214,208},20013) 将“中”字的unicode写入内存；
+Unicode = get({214,208}) 将“中”字的unicode从内存里读出。
+下面的函数get_unicode/1，得到整个字符串的unicode，如：get_unicode("中文窗口")，返回[20013,25991,31383,21475]。
+get_unicode([],U) -> 
+   lists:reverse(U);
+get_unicode([A|T],U) when A < 128 ->
+   get_unicode(T,[A|U]);
+get_unicode([A,B|Z],U) -> 
+   H = get({A,B}),
+   get_unicode(Z,[H|U]).
+这个函数可以处理中西文混合的字符串，如： 
+get_unicode2("asd中fg34文55窗66口tt4",[])
+结果是 [97,115,100,20013,102,103,51,52,25991,53,53,31383,54,54,21475,116,116,52]
+下面的问题，是要把GB2312全部汉字及其相应的unicode，逐一put到Erlang进程中。
+这个问题，也就是建立在Erlang中使用的编码转换表。它无法在Erlang中编程解决，因为，Erlang的编译器erlc不支持unicode。
+具体解决办法，以后接着说。
+
+
+
+
+建立编码转换表，可用任何支持unicode的语言，我用的是Python。
+def to_unicode():
+    f = open('gb2u.erl','w')
+    for row in range(176,248):
+        for col in range(1,95):
+            ch1 = chr(row)
+            ch2 = chr(col+160)
+            w = ch1+ch2
+            u=w.encode('utf8')
+            u=u.decode('utf8')
+            s='put({%s,%s},%s),\n'%(str(row),str(col+160),str(ord(u)))
+            f.write(s)
+    f.close()
+这里唠叨点编码常识。
+常见GB2312属于区位码的说法。“区位”其实就是二维数组，“区”对应“行”row，“位”对应“列”col。
+汉字编码的第一字节是行号，第二字节是列号，它们的编码值减去160后，就看出来了。
+for row in range(176,248) 这里的176-160=16，即码表的第16区（行），248-160-1=87，第87区（行）。
+for col in range(1,95) 每一区（行）有94个汉字（好像第55区少5个）。表示第二字节时，编码要加上160。  
+unicode是怎样一回事？下面是我的理解，也可能是胡说八道。
+unicode编码是个逻辑概念，utf8,utf16,utf32,是其物理实现。
+例如，在Erlang中：
+3> S=unicode:characters_to_list("中国").   
+[20013,22269]
+4> unicode:characters_to_binary(S).      
+<<228,184,173,229,155,189>>
+5> 
+列表[]中是2个unicode编码，它们在内存中的实际表示是<<>>中的6个字节。
+好了，继续说上面的程序。运行后，它生成文件 gb2u.erl，约有150KB大小，内容是：
+put({176,161},21834),
+put({176,162},38463),
+put({176,163},22467),
+……
+put({247,254},40772),
+在文本编辑器中修改它：
+-module(gb2u).
+-export([start/0,get_unicode/2]).
+get_unicode([],U) -> lists:reverse(U);
+get_unicode([A|T],U) when A < 128 ->
+   get_unicode(T,[A|U]);
+get_unicode([A,B|Z],U) -> 
+   H = get({A,B}),
+   get_unicode(Z,[H|U]).
+start() ->
+put({176,161},21834),
+put({176,162},38463),
+put({176,163},22467),
+……
+put({247,254},40772).
+注意最后一行的结尾句号。
+在OS的shell中，erlc gb2u.erl 编译成 gb2u.beam，可由其他模块调用了。
+调用模块gb2u，还有些说道，下次接着聊。
+
+
+
+Erlang 中文简体字 GB2312 转 unicode 的办法(3) 收藏
+
+改了改程序，包括标点和其他符号，GB2312 的全部字符，都转换成了unicode。 
+view plaincopy to clipboardprint?
+def all_chars():  
+    s = '''''-module(gb2u). 
+-export([start/0,get_unicode/2]). 
+get_unicode([],U) -> lists:reverse(U); 
+get_unicode([A|T],U) when A < 128 -> 
+   get_unicode(T,[A|U]); 
+get_unicode([A,B|Z],U) ->  
+   H = get({A,B}), 
+   get_unicode(Z,[H|U]). 
+start() ->\n'''  
+    f = open('gb2u.erl','w')  
+    f.write(s)  
+    for row in range(161,248):  
+        if row > 169 and row < 176:  
+            continue  
+        for col in range(161,255):  
+            ch1 = chr(row)  
+            ch2 = chr(col)  
+            w = ch1+ch2  
+            try:  
+                u=w.encode('utf8')  
+                u=u.decode('utf8')  
+            except:  
+                continue  
+            s='put({%s,%s},%s),\n'%(str(row),str(col),str(ord(u)))  
+            f.write(s)  
+    f.close()  
+  
+生成文件gb2u.erl最后一行的逗号，要手工改成句号。 
+一般地说，Erlang没有全局变量，但内建函数put/2放进内存的数据，却是全局性的。运行了gb2u:start()之后，其他程序只需直接调用gb2u:get_unicode/2即可。 
+测试的结果，这个转码表可用于wxErlang程序，不能用于Erlang自有的gs。
+
+
+---------------------------------------------------------------------------------------------------
+
+http://www.javaeye.com/topic/72564
+
+Erlang 字符编码模块: iconv
+
+在Erlang中，要处理字符串编码的转换，可以使用iconv,目前CEAN的发行版本，ejabberd和iconv模块里面都有iconv的库，但是都无法正常运行（提示版本不兼容），但是在ejabberd的安装包可以使用。经过比较，发现是 
+erl.exe，erlexec.dll，beam.dll 这三个启动程序的问题，ejabberd的是V5.5.2.2，而CEAN1.2和ErlangOTP R11B4都是V5.5.4，可能两个版本跟iconv的c port不兼容。 
+
+下面就以ejabberd的erlang版本来说明： 
+
+首先启动port 
+引用
+1> iconv:start(). 
+{ok,<0.30.0>}
+
+
+Java代码 
+2> iconv:convert("gbk", "utf-8", "你好").  
+"浣犲ソ"  
+
+
+Windows下控制台编码为gbk，这里将“你好”编码为UTF8后输出，显示乱码，可以用io:format解决： 
+引用
+3> io:format("~w~n", [iconv:convert("gbk", "utf-8", "你好")]). 
+[228,189,160,229,165,189] 
+ok
+
+
+反过来流程是一样的： 
+引用
+4> iconv:convert("utf-8", "gbk", [228,189,160,229,165,189]). 
+"你好"
+
+
+要解决在Erlang发行版下使用的问题，估计要重新编译iconv的port。有谁有更好的方法，欢迎提出。
+
+
+
+
+---------------------------------------------------------------------------------------------------
+
+http://avindev.javaeye.com/blog/98174
+007-07-05
+CEAN 1.3 的 iconv 模块可用了
+
+关键字: erlang iconv charset
+CEAN1.3出来了，试试那个iconv还能不能用，在Windows下不行 经过邮件咨询，原来目前只能用于Linux x86下，其他平台以后会实现。 
+
+尝试一下将GBK编码流转换为UTF8编码，就用最简单的例子， 
+GBK格式的 “你好”，转换为UTF8后应该在GBK环境下显示 “浣犲ソ”，可以参见 这篇文章 
+
+在Windows环境下（GBK），获取 你好 的字节 
+引用
+1> io:format("~w~n", [<<"你好">>]). 
+<<196,227,186,195>>
+
+
+在Linux下（UTF8），先启动cean 
+
+引用
+1> iconv:start(). 
+{ok,<0.35.0>} 
+2> {ok, Cd} = iconv:open("utf8", "gbk"). 
+{ok,<<"8\372\b\t">>} 
+3> iconv:conv(Cd, <<196,227,186,195>>).            
+{ok,<<"\344\275\240\345\245\275">>}
+
+
+看来Linux 下 Erlang的控制台不能输出中文，那copy到Windows下看看是啥好了。 
+引用
+2> <<"\344\275\240\345\245\275">>. 
+<<"浣犲ソ">>
+
+
+OK了。至于为啥在Linux下的Erlang Shell中显示不了中文，这个有待研究~~
+
+---------------------------------------------------------------------------------------------------
+
+
+
+---------------------------------------------------------------------------------------------------
+
+
+---------------------------------------------------------------------------------------------------

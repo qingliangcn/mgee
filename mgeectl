@@ -1,0 +1,207 @@
+#!/bin/sh
+
+# add by odinxu, 2009-10-05, fix bug: [emfile] open too many files.
+ulimit -SHn 51200
+
+# define default configuration
+POLL=true
+SMP=auto
+ERL_MAX_PORTS=32000
+ERL_PROCESSES=500000
+ERL_MAX_ETS_TABLES=1400
+
+# define default environment variables
+NODE=mgee
+HOST=localhost
+ERLANG_NODE=$NODE@$HOST
+ERL=erl
+ROOTDIR=`cd $(dirname $0); pwd`
+WG_CONFIG_PATH=$ROOTDIR/etc/
+LOGS_DIR=$ROOTDIR/log
+WG_DB=$ROOTDIR/var/db/$NODE
+RUNAPP=mgee
+CTLAPP=mgee_ctl
+
+#echo "root is $ROOTDIR \n"
+
+# read custom configuration
+CONFIG=$ROOTDIR/etc/mgee.cfg
+#[ -f "$CONFIG" ] || 
+
+# parse command line parameters
+ARGS=
+while [ $# -ne 0 ] ; do
+    PARAM=$1
+    shift
+    case $PARAM in
+        --) break ;;
+        --node) ERLANG_NODE=$1; shift ;;
+        --config) WG_CONFIG_PATH=$1 ; shift ;;
+        --ctl-config) CONFIG=$1 ; shift ;;
+        --logs) LOGS_DIR=$1 ; shift ;;
+        --spool) WG_DB=$1 ; shift ;;
+        *) ARGS="$ARGS $PARAM" ;;
+    esac
+done
+
+# get the node name from .caclib.name
+cac_name()
+{
+    CACNAMEFILE="./etc/.caclib.name"
+    if ! [ -f "$CACNAMEFILE" ]; then
+        echo ""
+        return 0
+    fi
+
+    echo `cat $CACNAMEFILE | grep -s '^\{.*\}\.$' | cut -d \' -f 2`
+}
+
+RUNAPP="$RUNAPP"
+
+NAME=-name
+[ "$ERLANG_NODE" = "${ERLANG_NODE%.*}" ] && NAME=-sname
+
+ERLANG_OPTS="-connect_all false +K $POLL -smp $SMP +P $ERL_PROCESSES"
+
+# define additional environment variables
+BASE_EBIN=`dirname $ROOTDIR`/base/ebin
+MOCHI_EBIN=`dirname $ROOTDIR`/mochiweb/ebin
+CACLIB_EBIN=`dirname $ROOTDIR`/caclib/ebin
+ROOT_EBIN=$ROOTDIR/ebin 
+
+EBINS="$BASE_EBIN $MOCHI_EBIN $CACLIB_EBIN $ROOT_EBIN"
+#echo "ebins is " $EBINS
+
+WG_SO_PATH=$ROOTDIR/priv/lib
+WG_BIN_PATH=$ROOTDIR/priv/bin
+WG_LOG_PATH=$LOGS_DIR/mgee.log
+SASL_LOG_PATH=$LOGS_DIR/sasl.log
+DATETIME=`date "+%Y%m%d-%H%M%S"`
+ERL_CRASH_DUMP=$LOGS_DIR/erl_crash_$DATETIME.dump
+#ERL_INETRC=$ROOTDIR/etc/inetrc
+HOME=$ROOTDIR
+
+# export global variables
+export WG_CONFIG_PATH
+export WG_LOG_PATH
+export WG_SO_PATH
+export WG_BIN_PATH
+export ERL_CRASH_DUMP
+#export ERL_INETRC
+export ERL_MAX_PORTS
+export ERL_MAX_ETS_TABLES
+export HOME
+
+[ -d $WG_DB ] || mkdir -p $WG_DB
+[ -d $LOGS_DIR ] || mkdir -p $LOGS_DIR
+
+# Compatibility in ZSH
+#setopt shwordsplit 2>/dev/null
+
+# start server
+start ()
+{
+    $ERL \
+      $NAME $ERLANG_NODE \
+      -noinput -detached \
+      -pa $EBINS \
+      -mnesia dir "\"$WG_DB\"" \
+      -kernel error_logger \{file,\"$WG_LOG_PATH\"\} \
+      -sasl sasl_error_logger \{file,\"$SASL_LOG_PATH\"\} \
+      -s ${RUNAPP}\
+      $ERLANG_OPTS $ARGS "$@"
+}
+
+# attach to server
+debug ()
+{
+    echo "--------------------------------------------------------------------"
+    echo ""
+    echo "IMPORTANT: we will attempt to attach an INTERACTIVE shell"
+    echo "to an already running node."
+    echo "If an ERROR is printed, it means the connection was not succesfull."
+    echo "You can interact with the running node if you know how to use it."
+    echo "Please be extremely cautious with your actions,"
+    echo "and exit immediately if you are not completely sure."
+    echo ""
+    echo "To detach this shell from node, press:"
+    echo "  control+c, control+c"
+    echo ""
+    echo "--------------------------------------------------------------------"
+    echo "Press any key to continue"
+    read foo
+    echo ""
+    $ERL \
+      $NAME debug_"$ERLANG_NODE" \
+      -boot start_clean \
+      -remsh $ERLANG_NODE \
+      $ERLANG_OPTS $ARGS "$@"
+}
+
+# start interactive server
+live ()
+{
+    echo "--------------------------------------------------------------------"
+    echo ""
+    echo "IMPORTANT: node is going to start in LIVE (interactive) mode."
+    echo "All log messages will be shown in the command shell."
+    echo "You can interact with the node if you know how to use it."
+    echo "Please be extremely cautious with your actions,"
+    echo "and exit immediately if you are not completely sure."
+    echo ""
+    echo "To exit this LIVE mode and stop node, press:"
+    echo "  q().  and press the Enter key"
+    echo ""
+    echo "--------------------------------------------------------------------"
+    echo "Press any key to continue"
+    read foo
+    echo ""
+    $ERL \
+      $NAME $ERLANG_NODE \
+      -pa $EBINS \
+      -mnesia dir "\"$WG_DB\"" \
+      -s ${RUNAPP} \
+      $ERLANG_OPTS $ARGS "$@"
+}
+
+# common control function
+ctl ()
+{
+    $ERL \
+      $NAME ctl_"$ERLANG_NODE" \
+      -noinput \
+      -boot start_clean \
+      -pa $EBINS \
+      -s ${CTLAPP}  -extra $ERLANG_NODE $@
+    result=$?
+    case $result in
+    0) :;;
+    *) usage;;
+    esac
+    return $result
+}
+
+# display ctl usage
+usage ()
+{
+    echo ""
+    echo "Commands to start an wg node:"
+    echo "  start  [--no_caclib] Start an node in server mode, default use caclib"
+    echo "  debug  Attach an interactive Erlang shell to a running node"
+    echo "  live   Start an node in live (interactive) mode"
+    echo ""
+    echo "Optional parameters when starting an node:"
+    echo "  --config file      Config file:             $WG_CONFIG_PATH"
+    echo "  --ctl-config file  Config file of wgctl:    $CONFIG"
+    echo "  --logs dir         Directory for logs:      $LOGS_DIR"
+    echo "  --spool dir        Database spool dir:      $WG_DB"
+    echo "  --node nodename    node name:               $ERLANG_NODE"
+    echo ""
+}
+
+case $ARGS in
+    ' start') start;;
+    ' debug') debug;;
+    ' live') live;;
+    *) ctl $ARGS;;
+esac

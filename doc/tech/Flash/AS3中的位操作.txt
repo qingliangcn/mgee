@@ -1,0 +1,104 @@
+
+左位移几就相当于乘以2的几次方：
+x = x * 2;
+x = x * 64;   
+//相当于：
+x = x << 1;
+x = x << 6;
+
+右位移几就相当于除以2的几次方：
+x = x / 2;
+x = x / 64;   
+//相当于：
+x = x >> 1;
+x = x >> 6;
+
+Number 到 integer(整数)转换：
+x = int(1.232)
+//相当于：          
+x = 1.232 >> 0;
+
+
+提取颜色组成成分：
+
+//24bit
+var color:uint = 0x336699;
+var r:uint = color >> 16;
+var g:uint = color >> 8 & 0xFF;
+var b:uint = color & 0xFF;
+//32bit
+var color:uint = 0xff336699;
+var a:uint = color >>> 24;
+var r:uint = color >>> 16 & 0xFF;
+var g:uint = color >>> 8 & 0xFF;
+var b:uint = color & 0xFF;
+
+
+合并颜色组成成分：
+//24bit
+var r:uint = 0x33;
+var g:uint = 0x66;
+var b:uint = 0x99;
+var color:uint = r << 16 | g << 8 | b;
+//32bit
+var a:uint = 0xff;
+var r:uint = 0x33;
+var g:uint = 0x66;
+var b:uint = 0x99;
+var color:uint = a << 24 | r << 16 | g << 8 | b;
+
+
+使用异或运算交换整数而不需要用临时变量：
+
+var t:int = a;
+a = b;
+b = t;
+//相当于:
+a ^= b;
+b ^= a;
+a ^= b;
+
+
+自增/自减：
+
+i = -~i; // i++
+i = ~-i; // i--
+
+取反：
+
+i = -i;
+//相当于：
+i = ~i + 1;
+//或者
+i = (i ^ -1) + 1;
+
+ 
+
+使用bitwise AND快速取模：
+
+如果除数是2的次方，取模操作可以这样做：
+模数= 分子 & (除数 - 1);
+x = 131 % 4;
+//相当于：
+x = 131 & (4 - 1);
+
+检查是否为偶数：
+isEven = (i % 2) == 0;
+//相当于：
+isEven = (i & 1) == 0;
+
+
+绝对值：
+//version 1
+i = x < 0 ? -x : x;
+//version 2
+i = (x ^ (x >> 31)) - (x >> 31);
+
+
+判断是否同号
+eqSign = a * b > 0;
+//equals:
+eqSign = a ^ b >= 0;
+
+
+

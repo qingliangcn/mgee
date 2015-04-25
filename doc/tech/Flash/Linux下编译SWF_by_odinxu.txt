@@ -1,0 +1,56 @@
+
+/data/flexsdk4/bin/mxmlc -compiler.library-path+="../" -compiler.source-path+="../../Minglib/src/"  MingCore.as 
+
+
+
+cat /root/make_flash.sh
+
+#!/bin/bash
+cd /data/web/mge/mgef/trunk/
+svn update
+cd /data/web/mge/mgef/trunk/Ming3/src
+/bin/rm MingCore.swf
+
+/data/flexsdk4/bin/mxmlc -compiler.library-path+="../" -compiler.source-path+="../../Minglib/src/"  MingCore.as 
+
+/bin/mv -f MingCore.swf /data/web/mge/www/MingCore2.swf
+
+echo "Please visit url:  http://mge.mingchaoonline.com/MingCore2.swf"
+
+
+
+----------------------------------------------------------------------------------------------------------------------
+
+(2010-01-30 22:33:40)   XuZhaopeng(52026026)
+http://livedocs.adobe.com/flex/201/html/wwhelp/wwhimpl/common/html/wwhelp.htm?context=LiveDocs_Book_Parts&file=build_044_12.html
+
+这个讲如何用ANT来手动编译 FLASH的，好像就是周五时我们在群里讨论，所需要的方案。 
+  
+(2010-01-30 22:33:56)   XuZhaopeng(52026026)
+明朝时代FLASH版，可能可以用这个技术搞得定自动编译。 
+  
+(2010-01-30 22:34:15)   庆亮<qingliangcn@qq.com>
+晕，flex自带的。 
+(2010-01-30 22:34:32)   XuZhaopeng(52026026)
+至于明3项目，目前可以暂时只用一个指令编译，等以后项目复杂起来了，我估计也得靠ANT才搞得定。 
+  
+(2010-01-30 22:34:44)   庆亮<qingliangcn@qq.com>
+嗯，应该是。 
+(2010-01-30 22:35:26)   XuZhaopeng(52026026)
+现在没时间去研究ANT，明朝时代的，等以后有空再说了。呵呵。URL先保存好。 
+  
+(2010-01-30 22:35:40)   庆亮<qingliangcn@qq.com>
+   我有用那个cyberarticle保存。 
+
+
+
+
+----------------------------------------------------------------------------------------------------------------------
+
+
+
+
+
+
+----------------------------------------------------------------------------------------------------------------------
+

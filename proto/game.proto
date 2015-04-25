@@ -1,0 +1,706 @@
+option java_package = "proto";
+
+// m_ 开头的，为网络传输的包的最外围，编码解码就是调用这个生成的类。
+// p_ 开头的，为基础结构数据，会被包含在 m_ 开头的数据内部。
+//
+// 规定：消息名和字段名，不使用大写字母，全部由小写字母，下划线，以及数字组成。
+//
+
+
+
+
+// type 值 1，则 value 表示 拿什么武器(武器的ID号）, 以下这3个值，其实是根据 p_role_attr 里面的 equip 1--8字段得到的
+// type 值 2，则 value 表示 穿什么衣服(衣服的ID号）
+// type 值 3，则 value 表示 穿什么鞋子(鞋子的ID号）
+//
+// type 值 11，则 value 表示 坐什么坐骑(坐骑的ID号）
+//
+// type 值 21，则表示具有 某种BUFFER效果，此时 value 无效，buffer功能未实现，我们这里假设这个是火焰光环
+// type 值 22，则表示具有 某种BUFFER效果，此时 value 无效，buffer功能未实现，我们这里假设这个是闪电光环
+// ...... 其它更多，待定
+message p_game_role_disply {
+	required int32 		type			= 1;
+	optional int32 		value			= 2;
+}
+
+//保存单独一个角色的基本数据
+message p_game_role {
+	required int32 		roleid			= 1;
+	required string 	rolename		= 2;
+	required int32 		sex				= 3;		//性别：0男，1女
+	required int32 		skinid			= 4;		//哪一个人物形象（即裸体时，应该加载哪个资源）
+	required int32 		vwid			= 5;
+	required int32 		x				= 6;
+	required int32 		y				= 7;
+
+	repeated p_game_role_disply	display = 8;		//用于在屏幕上显示这个角色，还需要什么数据
+}
+
+//角色列表，里面是一个数组，数组的每一项，是一个 p_game_role ，可以为空数组
+message p_role_list {
+	repeated p_game_role 	role 		= 1;
+}
+
+//保存角色的详细属性
+message p_role_attr {
+	required int32 		roleid			= 1;
+	required string 	rolename		= 2;
+	required string 	account_name	= 3;
+	
+	optional int32		create_time		= 4;		//角色创建时间
+	optional int32		status			= 5;		//角色状态
+	optional int32		last_login_time	= 6;		//最后一次登录该角色的时间
+	
+	optional int32		exp				= 8;		//经验值
+	optional int32		level			= 9;		//等级
+	
+	optional int32		hp				= 11;		//当前血值多少
+	optional int32		mp				= 12;
+	optional int32		attack			= 13;
+	optional int32		defence			= 14;
+	optional int32		aglie			= 15;
+	
+	optional int32		max_hp			= 21;		//满血值是多少
+	optional int32		max_mp			= 22;		//满法力、内力值是多少
+	optional int32		max_attack		= 23;
+	optional int32		max_defence		= 24;
+	optional int32		max_aglie		= 25;
+	
+	optional int32		equip1			= 31;
+	optional int32		equip2			= 32;
+	optional int32		equip3			= 33;
+	optional int32		equip4			= 34;
+	optional int32		equip5			= 35;
+	optional int32		equip6			= 36;
+	optional int32		equip7			= 37;
+	optional int32		equip8			= 38;
+
+	optional int32		skill1			= 41;
+	optional int32		skill2			= 42;
+	optional int32		skill3			= 43;
+	optional int32		skill4			= 44;
+	optional int32		skill5			= 45;
+	optional int32		skill6			= 46;
+	optional int32		skill7			= 47;
+	optional int32		skill8			= 48;
+
+}
+
+//保存单个道具的详细属性
+message p_item_attr {
+	required int32 		itemid				= 1;
+	required string 	itemname			= 2;
+	optional int32		quality				= 3;		//品质、颜色
+	optional int32		consumable			= 11;		//可使用
+	optional int32		damagable			= 12;		//可摧毁
+	optional int32		tradable			= 13;		//可交易
+	optional int32		reclaimable			= 14;		//可回收，即卖给系统商店
+	optional int32		reclaim_price		= 15;		//可回收，即卖给系统商店	
+}
+
+//保存单个装备的详细属性
+message p_equip_attr {
+	required int32 		equipid				= 1;
+	required string 	equipname			= 2;
+	optional int32		quality				= 3;		//品质、颜色
+	optional int32		slot_num			= 4;		//(装备)槽数
+	optional int32		fineness			= 5;		//品质参数, 即主属性系数, 取值为0到100的整数, 0和100等效意为"100%"
+	optional int32		gem_count			= 6;		//(装备)镶嵌的灵石数
+	
+	optional int32		consumable			= 11;		//可使用
+	optional int32		damagable			= 12;		//可摧毁
+	optional int32		tradable			= 13;		//可交易
+	optional int32		reclaimable			= 14;		//可回收，即卖给系统商店
+	optional int32		reclaim_price		= 15;		//可回收，即卖给系统商店
+}
+
+//===================================== 帐号、登录 模块		=====================================
+//tos 表示 to server，由客户端发送给服务器的
+message m_login_flash_login_tos {
+	required string 		account_name	= 1;
+	required string 		account_pwd 	= 2;
+}
+
+//toc 表示 to client，由服务器发送给客户端的
+// succ 为 false 时，客户端可以读取 reason里面的原因，并显示，此时 result的值没有意义。
+// succ 为 true  时，客户端可以从 result 得到具体的返回结果，此时 reason的值没有意义。
+message m_login_flash_login_toc {
+	required bool 			succ		= 1 [default = true];
+	optional string 		reason		= 2;
+	optional p_role_list 	result	 	= 3;
+}
+
+//===================================== 角色 模块			=====================================
+
+// Client查询指定帐号的 角色列表， 返回以下数据
+message m_role_list_toc {
+	required bool 			succ		= 1 [default = true];
+	optional string 		reason		= 2;
+	optional p_role_list 	result	 	= 3;
+}
+
+// 创建新角色
+message m_role_add_tos {
+	required string 								rolename	= 1;
+	required int32 									sex				= 2;
+	required int32 									skinid		= 3;
+	repeated p_game_role_disply			display 	= 4;
+}
+
+// 创建角色，返回结果
+message m_role_add_toc {
+	required bool 			succ		= 1 [default = true];
+	optional string 		reason		= 2;
+	optional p_role_list 	result	 	= 3;
+}
+
+// 删除角色
+message m_role_del_tos {
+	required int32 			roleid		= 1;
+}
+
+// 删除角色，返回结果
+message m_role_del_toc {
+	required bool 			succ		= 1 [default = true];
+	optional string 		reason		= 2;
+	optional p_role_list 	result	 	= 3;
+}
+
+// 使用某一个角色，进入游戏内
+message m_role_enter_tos {
+	required int32 			roleid		= 1;
+}
+
+// 使用某一个角色，进入游戏内，返回结果
+message m_role_enter_toc {
+	required bool 			succ		= 1 [default = true];
+	optional string 		reason		= 2;
+	optional p_role_attr 	result	 	= 3;
+}
+
+//===================================== vw 模块			=====================================
+
+//vw中保存的角色的状态信息，包括socket、最后移动路径等等
+message p_role_server_status {
+	required p_game_role roleinfo = 1;
+	optional m_move_walk_path_tos lastpath = 2; // 该玩家最后一次的移动路径
+}
+
+// 进入某一个地图场景
+message m_vw_enter_tos {
+	required int32 			vwid		= 1;
+}
+
+message p_role_status_list {
+	repeated p_role_server_status role_status = 1;
+}
+
+// 进入某一个地图场景，返回结果
+message m_vw_enter_toc {
+	required bool 			succ		= 1 [default = true];
+	required bool 			return_self	= 2 [default = true];
+	optional string 		reason		= 3;
+	//进入场景后返回一个角色列表，包含了所有当前可视的玩家的状态信息
+	optional p_role_status_list 	result	 	= 4;
+	
+	//某个玩家加入了，下行(给其它Client)
+	optional int32 			roleid		= 5;
+	optional p_game_role 	game_role 	= 6;	
+}
+
+//某个玩家离开了地图
+message m_vw_quit_toc {
+	required int32			roleid = 1;
+}
+
+//一个slice就是一个大格子，九个大格子组成一个九宫格
+message m_slice_enter_toc {
+	//为true时p_role_status_list表示新的玩家信息,为false时相当于告诉其他玩家“我来了”， p_role_status_list中只包含了该玩家的信息
+	required bool									return_self = 1 [default = true]; 
+	required p_role_status_list		result = 2; //当前在九宫格中的
+}
+
+//===================================== move 模块			=====================================
+
+// 地图上的某一个格子
+message p_map_tile {
+	required int32 			tx			= 1;
+	required int32 			ty			= 2;	
+}
+
+//走路（一条路径，包括经过的每一个格子坐标）
+// path 是一个数组，数组的每一项都是一个 { tx, ty } 表示具体某一个格子
+message m_move_walk_path_tos {
+	required int32 			bpx			= 1;
+	required int32 			bpy			= 2;
+	repeated p_map_tile		path		= 3;
+	required int32 			epx			= 4;
+	required int32 			epy			= 5;
+}
+
+// 走路（一条路径），返回结果
+message m_move_walk_path_toc {
+	required bool 			succ		= 1 [default = true];
+	required bool 			return_self	= 2 [default = true];
+	optional string 		reason		= 3;
+	//成功则这里不需要内容
+	
+	//走路（一条路径），下行(给其它Client)
+	optional int32 			roleid		= 5;
+	optional int32 			bpx			= 6;
+	optional int32 			bpy			= 7;
+	repeated p_map_tile		path		= 8;
+	optional int32 			epx			= 9;
+	optional int32 			epy			= 10;
+}
+
+
+// 走路（每到达下一个格子时发送给服务器一次新格子坐标）
+message m_move_walk_tos {
+	required int32 			dir			= 1;
+	required int32 			px			= 2;
+	required int32 			py			= 3;
+	required int32 			tx			= 4;
+	required int32 			ty			= 5;
+}
+
+// 走路（每个格子），返回结果
+message m_move_walk_toc {
+	required bool 			succ		= 1 [default = true];
+	optional string 		reason		= 2;
+	//成功则不需要下行任何数据，失败则退回某个格子
+	optional int32 			px			= 3;
+	optional int32 			py			= 4;
+	optional int32 			tx			= 5;
+	optional int32 			ty			= 6;
+}
+
+//同步位置数据
+message p_move_pos_sync {
+	required int32 			roleid		= 1;
+	required int32 			dir			= 2;
+	required int32 			px			= 3;
+	required int32 			py			= 4;
+	required int32 			tx			= 5;
+	required int32 			ty			= 6;
+	required int32 			speed		= 7;
+}
+
+//synclist 是一个数组，数组的每一项都是一个 { roleid, dir, px, py, tx, ty, speed }
+//定时将当前可视区域内的所有人的最新坐标，整成一个大广播包，来进行发送。
+message m_move_pos_sync_toc {
+	repeated p_move_pos_sync	synclist	= 1;
+}
+
+
+// !!! 仅仅用于测试
+message m_move_pos_sync_tos {
+	required int32 			tx			= 1;
+	required int32 			ty			= 2;
+}
+
+//===================================== 聊天 模块			=====================================
+
+// 私人聊天
+message m_chat_private_tos {
+	required int32 		to_roleid		= 1;
+	required string 	to_rolename 	= 2;
+	required string		body			= 3;	
+}
+
+// 发送聊天信息，返回结果
+message m_chat_private_toc {
+	required bool 			succ		= 1 [default = true];
+	required bool 			return_self	= 2 [default = true];
+	optional string 		reason		= 3;
+	//成功则这里不需要内容
+
+	//如果是下行给他人的，则有下面的内容  (即 私人聊天，他人接收到该聊天信息 )
+	optional int32 		from_roleid		= 5;
+	optional string 	from_rolename 	= 6;
+	optional string		body			= 7;	
+}
+
+// 世界聊天
+message m_chat_world_tos {
+	//由服务端判断是谁发的言
+	required string		body			= 1;	
+}
+
+// 发送世界聊天信息，返回结果
+message m_chat_world_toc {
+	required bool 			succ		= 1 [default = true];
+	required bool 			return_self	= 2 [default = true];
+	optional string 		reason		= 3;
+	//成功则这里不需要内容
+
+	//如果是下行给他人的，则有下面的内容  (即 世界聊天，其他所有在线的人接收到该聊天信息 )
+	optional int32 		from_roleid		= 5;
+	optional string 	from_rolename 	= 6;
+	optional string		body			= 7;
+}
+
+
+// 顶在头上的聊天气泡
+message m_chat_bubble_tos {
+	//由服务端判断是谁发的言
+	required string		body			= 1;	
+}
+
+// 发送  顶在头上的聊天气泡 ，返回结果
+message m_chat_bubble_toc {
+	required bool 			succ		= 1 [default = true];
+	required bool 			return_self	= 2 [default = true];
+	optional string 		reason		= 3;
+	//成功则这里不需要内容
+
+	//如果是下行给他人的，则有下面的内容
+	optional int32 		from_roleid		= 5;
+	optional string 	from_rolename 	= 6;
+	optional string		body			= 7;
+}
+
+// 当前城市地图聊天
+message m_chat_vw_tos {
+	//由服务端判断是谁发的言
+	required string		body			= 1;	
+}
+
+// 发送 当前城市地图聊天信息，返回结果
+message m_chat_vw_toc {
+	required bool 			succ		= 1 [default = true];
+	required bool 			return_self	= 2 [default = true];
+	optional string 		reason		= 3;
+	//成功则这里不需要内容
+
+	//如果是下行给他人的，则有下面的内容
+	optional int32 		from_roleid		= 5;
+	optional string 	from_rolename 	= 6;
+	optional string		body			= 7;
+}
+
+// 组队聊天
+message m_chat_team_tos {
+	//由服务端判断是谁发的言
+	required string		body			= 1;	
+}
+
+// 发送 组队聊天信息，返回结果
+message m_chat_team_toc {
+	required bool 			succ		= 1 [default = true];
+	required bool 			return_self	= 2 [default = true];
+	optional string 		reason		= 3;
+	//成功则这里不需要内容
+
+	//如果是下行给他人的，则有下面的内容
+	optional int32 		from_roleid		= 5;
+	optional string 	from_rolename 	= 6;
+	optional string		body			= 7;
+}
+
+
+// 宗族聊天
+message m_chat_family_tos {
+	//由服务端判断是谁发的言
+	required string		body			= 1;	
+}
+
+// 发送 宗族聊天信息，返回结果
+message m_chat_family_toc {
+	required bool 			succ		= 1 [default = true];
+	required bool 			return_self	= 2 [default = true];
+	optional string 		reason		= 3;
+	//成功则这里不需要内容
+
+	//如果是下行给他人的，则有下面的内容
+	optional int32 		from_roleid		= 5;
+	optional string 	from_rolename 	= 6;
+	optional string		body			= 7;
+}
+
+
+//===================================== 组队 模块: team		=====================================
+
+message p_team_role {
+	required int32 		roleid			= 1;
+	required string 	rolename		= 2;
+	optional int32 		sex				= 3;		//性别：0男，1女
+	optional int32 		skinid			= 4;	
+	optional int32 		vwid			= 5;
+	optional int32 		x				= 6;
+	optional int32 		y				= 7;
+	optional int32		level			= 8;
+	optional int32		team_order		= 9;		//在队伍中的位置,1,2,3,4,5.....此为加入队伍的顺序，无限递增1
+	optional bool		is_leader		= 10 [default = false];		//是否队长，一个队伍只允许1个是队长
+	optional bool		is_follow		= 11 [default = false];		//是否自动跟随
+	optional bool		is_offline		= 12 [default = false];		//是否下线了
+	optional int32		offline_time	= 13;						//下线时的时间
+}
+
+message p_team_role_list {
+	repeated p_team_role 	role 		= 1;
+}
+
+//---------------------------------
+//函数：list		查看队伍成员
+//---------------------------------
+// Client查询指定当前自己所属 队伍 所有成员列表， 返回以下数据，队伍ID，队伍所有成员
+message m_team_list_toc {
+	required bool 			succ		= 1 [default = true];
+	optional string 		reason		= 2;
+	optional p_team_role_list 	list	= 4;
+	optional int32 			teamid		= 5;
+}
+
+//---------------------------------
+//函数：create		创建一个队伍
+//---------------------------------
+// 客户端应该要知道自己有没有创建过队伍，可通过发送 team list 请求得知。
+// 如果没有，则想要邀请别人组队时，得先发起create的请求，成功后，再发起invite请求，
+// 如果自己已经创建了只有自己一个人的队伍，则可以直接发起invite请求。
+// 如果是被邀请，且自己同意了，则需要先解散创建者自己一个人的队伍，加入别人的队伍。
+//
+// 创建队伍，刚创建成功，返回结果的 p_team_role_list 数组里，应该只有创建者自己一个人。
+message m_team_create_toc {
+	required bool 			succ		= 1 [default = true];
+	optional string 		reason		= 2;
+	optional p_team_role_list 	list	= 4;
+	optional int32 			teamid		= 5;
+}
+
+//---------------------------------
+//函数：invite		邀请某人加入队伍
+//---------------------------------
+message m_team_invite_tos {
+	required int32 		roleid		= 1;
+}
+
+//不管邀请操作，成功还是失败，都要有返回数据，而且返回给2个角色的数据不同的。
+message m_team_invite_toc {
+	required bool 			succ		= 1 [default = true];
+	required bool 			return_self	= 2 [default = true];
+	optional string 		reason		= 3;
+	//邀请操作成功，则这里不需要reason,也不需要返回详细内容。
+	
+	//下送给其它Client的数据在这里
+	optional int32 			roleid		= 4;
+	optional string			rolename	= 5;
+	optional int32 			teamid		= 6;
+}
+
+//---------------------------------
+//函数：accept	某人同意邀请，并加入队伍
+//---------------------------------
+message m_team_accept_tos {
+	required int32 			teamid		= 1;
+}
+
+//返回给发起请求者的信息，包括 teamid, p_team_role_list (表明队伍目前有哪些人了)
+//返回给队伍的所有人(除了新加入者)的信息，包括 teamid, p_team_role_list, roleid, rolename(表明谁新加入成功了)
+message m_team_accept_toc {
+	required bool 			succ		= 1 [default = true];
+	required bool 			return_self	= 2 [default = true];
+	optional string 		reason		= 3;
+		
+	optional p_team_role_list 	list	 	= 4;
+	optional int32 			roleid		= 5;
+	optional string			rolename	= 6;
+	optional int32 			teamid		= 7;
+}
+
+//---------------------------------
+//函数：refuse	某人拒绝邀请
+//---------------------------------
+message m_team_refuse_tos {
+	required int32 			teamid		= 1;
+}
+
+//这个只返回给 队长，不需要返回给 发起拒绝操作的角色了。
+//（就算是拒绝操作失败，也不用返回的，这种情况，就当是该玩家没同意就行，也没操作就可以了）
+message m_team_refuse_toc {
+	optional int32 			roleid		= 5;
+	optional string			rolename	= 6;	//表明谁拒绝了加入组队
+	optional int32 			teamid		= 7;
+}
+
+//---------------------------------
+//函数：leave		某人主动操作，退出/离开队伍
+//---------------------------------
+message m_team_leave_tos {
+	required int32 			teamid		= 1;
+}
+
+//返回给队伍的全部人
+//包括 teamid, p_team_role_list (退出后剩下哪些人)
+//		roleid, rolename(表明谁退出组队了)
+message m_team_leave_toc {
+	required bool 			succ		= 1 [default = true];
+	required bool 			return_self	= 2 [default = true];
+	optional string 		reason		= 3;
+		
+	optional p_team_role_list 	list	 	= 4;
+	optional int32 			roleid		= 5;
+	optional string			rolename	= 6;
+	optional int32 			teamid		= 7;
+}
+
+//---------------------------------
+//函数：kick		队长把某人踢出队伍
+//---------------------------------
+message m_team_kick_tos {
+	required int32 			roleid		= 1;
+}
+
+//返回给队伍的全部人
+//包括 teamid, p_team_role_list (退出后剩下哪些人)
+//		roleid, rolename(表明谁被踢出队伍了)
+message m_team_kick_toc {
+	required bool 			succ		= 1 [default = true];
+	required bool 			return_self	= 2 [default = true];
+	optional string 		reason		= 3;
+		
+	optional p_team_role_list 	list	 	= 4;
+	optional int32 			roleid		= 5;
+	optional string			rolename	= 6;
+	optional int32 			teamid		= 7;
+}
+
+//---------------------------------
+//函数：offline	某人离线/下线了
+//---------------------------------
+// 下线消息，是不会通过网络协议来发起的，是ERLANG内部消息机制
+// 如果是队长离线了，队伍中的第2人自动成为队长。
+
+//这个只返回给队伍里的所有人，除了那个已经下线的人。
+//注意，这里只是下线了，p_team_role_list数组里，还是需要包括那个下线的人的，用状态特别标记出来
+message m_team_offline_toc {
+	optional p_team_role_list 	list	 	= 4;
+	optional int32 			roleid		= 5;
+	optional string			rolename	= 6;	//表明谁下线了
+	optional int32 			teamid		= 7;
+}
+
+
+//---------------------------------
+//函数：follow	队员跟从队长(跟着队长后面走)
+//---------------------------------
+message m_team_follow_tos {
+	required int32 			teamid		= 1;
+	required int32 			set_follow	= 2;	//1表示设置为跟随，2为取消跟随
+}
+
+//返回给队伍的全部人
+message m_team_follow_toc {
+	required bool 			succ		= 1 [default = true];
+	required bool 			return_self	= 2 [default = true];
+	optional string 		reason		= 3;
+	
+	optional int32 			set_follow	= 4;	//1表示设置为跟随，2为取消跟随
+	optional int32 			roleid		= 5;
+	optional string			rolename	= 6;	//表明谁，开始设置follow队长
+	optional int32 			teamid		= 7;
+}
+
+//---------------------------------
+//函数：change_leader		队长设置别人成为队长
+//---------------------------------
+//	队长设置别人成为队长，同时把自己在队伍中的顺序，降到最后一位。
+//	不能是第2位，原因，很大可能该队长，是准备要退出游戏了。
+
+message m_team_change_leader_tos {
+	required int32 			teamid		= 1;
+	required int32 			roleid		= 2;
+	required string			rolename	= 3;	//将队长，让给谁来当
+}
+
+//返回给队伍的全部人
+message m_team_change_leader_toc {
+	required bool 			succ		= 1 [default = true];
+	required bool 			return_self	= 2 [default = true];
+	optional string 		reason		= 3;
+	
+	optional p_team_role_list 	list	 	= 4;
+	optional int32 			roleid		= 5;
+	optional string			rolename	= 6;	//表明谁，开始成为新的队长
+	optional int32 			teamid		= 7;
+}
+
+
+//===================================== 装备 模块	equip	=====================================
+//---------------------------------
+//函数：change		角色换装备
+//---------------------------------
+message m_equip_change_tos {
+	required int32 			equip_slot_num	= 1;	//要替换哪一个装备位
+	required int32			equipid			= 2;	//要替换成哪一件装备
+}
+
+message m_equip_change_toc {
+	required bool 			succ			= 1 [default = true];
+	required bool 			return_self		= 2 [default = true];
+	optional string 		reason			= 3;
+	
+	optional int32 			roleid			= 4;
+	optional int32 			equip_slot_num	= 5;	//哪一个装备位
+	optional int32			equipid			= 6;	//替换成哪一件装备
+}
+
+
+//===================================== 战斗 模块	fight	=====================================
+
+message p_fight_effect {
+	required int32 			effect_type		= 1;	//产生的哪一种效果
+	optional int32 			effect_value	= 2;	//效果值
+}
+
+//---------------------------------
+//函数：attack		攻击
+//---------------------------------
+//	单对单，发起攻击操作
+message m_fight_attack_tos {
+	required int32 			dest_roleid		= 1;
+	required int32			skillid			= 2;	//技能ID
+}
+
+//返回给可视区域（9宫格）内的全部人，大部分角色都不需要知道进攻效果。
+//返回给进攻方，防守方，以及双方的同一组队的人，必须包括 src_effect dest_effect，这样同队的人能看到头上掉血的效果。
+message m_fight_attack_toc {
+	required bool 			succ			= 1 [default = true];
+	required bool 			return_self		= 2 [default = true];
+	optional string 		reason			= 3;
+	
+	optional int32 			src_roleid		= 4;
+	optional int32 			dest_roleid		= 5;
+	optional int32			skillid			= 6;	//技能ID
+	
+	repeated p_fight_effect src_effect		= 7;	//对进攻方产生的效果(比如扣精力，扣MP)
+	repeated p_fight_effect dest_effect		= 8;	//对防守方产生的效果(比如扣血，击退，杀死等)
+}
+
+
+//基本思路
+//		怪物的死后重新刷新，相当于有新玩家进入地图
+//		怪物的走动，相当于玩家的走动
+//		怪物的进攻，相当于玩家的进攻
+//		玩家进入另外1个9宫格时，获得的数据，除了其他玩家的数据，还有怪物的数据。
+//		每个role进程表示一个玩家，对应的每个 monster 进程表示一个怪物，这个monster进程内部有简单AI。
+
+//一个技能的详细信息
+message p_skill {
+	required int32			skill_id = 1; //技能id
+	required string			skill_name = 2;
+	required int32			skill_display = 3; // 显示效果
+	required bool				single = 4; //是否是单体技能，false为群攻技能
+	required int32			hit_hp = 5; //技能的伤红效果
+	required int32			miss_rate = 6;// 技能的miss概率
+	required int32			reduce_mp = 7; //蓝消耗
+	required int32			attack_area = 8; //攻击范围
+	required int32 			cool_time = 9;//冷却时间
+}
+
+
+//===================================== 好友 模块			=====================================
+
+
+
+//===================================== 宗族 模块			=====================================

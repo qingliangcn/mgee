@@ -1,0 +1,50 @@
+http://old.nabble.com/UTF8-and-EDoc-td25676638.html
+
+This is my fix to make EDoc work with Japanese (R13B02-1, .erl and
+overview.edoc files are saved in UTF-8). I think it will work for
+other languages:
+
+1. At edoc_lib:write_file/4
+
+Change
+
+file:open(File)
+
+to
+
+file:open(File, [write, {encoding, utf8}])
+
+This is better than my previous dirty hack.
+
+2. At edoc_tags:parse_tags/5
+
+Change
+
+case dict:fetch(Name, How) of
+    text ->
+        parse_tags(Ts, How, Env, Where, [T | Ts1]);
+
+to
+
+case dict:fetch(Name, How) of
+    text ->
+        Data = unicode:characters_to_list(list_to_binary(T#tag.data)),
+        T2 = T#tag{data = Data},
+        parse_tags(Ts, How, Env, Where, [T2 | Ts1]);
+
+Regards,
+Ngoc
+
+
+
+--------------------------------------------------------------------------
+
+按上面修改完成后，使用erlc编译，
+编译时，会提示找不到一个hrl文件，需要使用 -I 参数指定一下目录
+将编译完的2个 beam 文件，覆盖过去旧的文件。
+就可以了。
+
+erlc -I ../../xmerl-1.2.3/include/ edoc_lib.erl   
+erlc -I ../../xmerl-1.2.3/include/ edoc_tags.erl 
+--------------------------------------------------------------------------
+

@@ -1,0 +1,154 @@
+%% --------------------------------------------------------------------
+
+loadMapDataTitlResolv(TitleWidth, TitleHeight, DataList) ->
+	Ets = ets:new(load_map_data_titl_resolv, [set, private]),
+	erlang:statistics(runtime),
+	erlang:statistics(wall_clock),
+	lists:foreach(
+		fun(Y)-> 
+			YS = Y * TitleWidth,
+			lists:foreach(
+				fun(X)->
+					% get one emement from list.
+					% value is 0 means can walk
+					% value is 1 means can not walk through.
+					% nth func accept param from 1....length(List), not start with 0
+					case lists:nth(YS + X + 1, DataList) of
+						0	->	ok; %%ets:insert(Ets, { {X,Y}, true });
+						_	->  ok
+					end
+				end, lists:seq(0, TitleWidth-1, 1)
+				)
+		end, lists:seq(0,TitleHeight-1,1)),	
+	{_, T1} = erlang:statistics(runtime),
+	{_, T2} = erlang:statistics(wall_clock),
+	?DEBUG("loadMapDataTitlResolv use time: ~p (~p) ~n ", [T1, T2]),
+	Data = ets:tab2list(Ets),
+	ets:delete(Ets),
+	{ok, Data}.
+%% --------------------------------------------------------------------
+
+loadMapDataTitlResolv2(TitleWidth, TitleHeight, DataList) ->
+	Ets = ets:new(load_map_data_titl_resolv2, [set, private]),
+	erlang:statistics(runtime),
+	erlang:statistics(wall_clock),
+	test(Ets, DataList, TitleWidth, TitleHeight, 0, 0),
+	{_, T1} = erlang:statistics(runtime),
+	{_, T2} = erlang:statistics(wall_clock),
+	?DEBUG("loadMapDataTitlResolv use time: ~p (~p) ~n ", [T1, T2]),
+	Data = ets:tab2list(Ets),
+	ets:delete(Ets),
+	{ok, Data}.
+
+test(Ets, DataList, TitleWidth, TitleHeight, X, Y) when X =:= TitleWidth -1 andalso TitleHeight -1 =:= Y ->
+	case lists:nth(Y * TitleWidth + X + 1, DataList) of
+		0	->	ets:insert(Ets, { {X,Y}, true });
+		_	->  ok
+	end,
+	ok;
+test(Ets, DataList, TitleWidth, TitleHeight, X, Y) when X =:= TitleWidth -1 ->
+	case lists:nth(Y * TitleWidth + X + 1, DataList) of
+		0	->	ets:insert(Ets, { {X,Y}, true });
+		_	->  ok
+	end,
+	test(Ets, DataList, TitleWidth, TitleHeight, 0, Y+1);
+test(Ets, DataList, TitleWidth, TitleHeight, X, Y) ->
+	case lists:nth(Y * TitleWidth + X + 1, DataList) of
+		0	->	ets:insert(Ets, { {X,Y}, true });
+		_	->  ok
+	end,
+	test(Ets, DataList, TitleWidth, TitleHeight, X + 1, Y).
+
+
+
+============================================================================================================================
+
+
+loadMapDataFrom(FullFileName) ->
+	{ok, S} = file:open(FullFileName, [read, binary, raw]),
+	{ok, MapNameBin} = file:pread(S, 0, 32),
+	MapName = string:strip( binary_to_list(MapNameBin), both, 0),
+	{ok,  <<TitleWidth:32>>  } = file:pread(S, 40, 4),
+	{ok,  <<TitleHeight:32>> } = file:pread(S, 44, 4),
+	?DEBUG("load map data: ~p*~p, ~p ~p", [TitleWidth, TitleHeight, FullFileName, MapName]),
+	{ok, Bin } = file:pread(S, 48, TitleWidth * TitleHeight ),
+	file:close(S),
+	?DEBUG("load map data: ~p*~p finish, begin resolv...", [TitleWidth, TitleHeight]),
+	{ok, Data} = loadMapDataTitlResolv(TitleWidth, TitleHeight, Bin ),	
+	?DEBUG("Map data loaded: ~p, can walk tile count: ~p", [FullFileName, length(Data)]),
+	{ok, {MapName, TitleWidth, TitleHeight, Data}}.
+
+loadMapDataFrom2(FullFileName) ->
+	{ok, S} = file:open(FullFileName, [read, binary, raw]),
+	{ok, MapNameBin} = file:pread(S, 0, 32),
+	MapName = string:strip( binary_to_list(MapNameBin), both, 0),
+	{ok,  <<TitleWidth:32>>  } = file:pread(S, 40, 4),
+	{ok,  <<TitleHeight:32>> } = file:pread(S, 44, 4),
+	?DEBUG("load map data: ~p*~p, ~p ~p", [TitleWidth, TitleHeight, FullFileName, MapName]),
+	{ok, Data } = loadMapDataTitlFromFile(S, 48, TitleWidth , TitleHeight ),
+	file:close(S),
+	?DEBUG("Map data loaded: ~p, can walk tile count: ~p", [FullFileName, length(Data)]),
+	{ok, {MapName, TitleWidth, TitleHeight, Data}}.
+
+loadMapDataTitlFromFile(S, P, TitleWidth, TitleHeight) ->
+	Ets = ets:new(load_map_data_titl_resolv, [set, private]),
+	erlang:statistics(runtime),
+	erlang:statistics(wall_clock),
+	lists:foreach(
+		fun(Y)-> 
+			YS = Y * TitleWidth,
+			lists:foreach(
+				fun(X)->
+					{ok,  <<WALK:8>>  } = file:pread(S, P + YS + X, 1),
+					case WALK of
+						0	->	ets:insert(Ets, { {X,Y}, true });
+						_	->  ok
+					end
+				end, lists:seq(0, TitleWidth-1, 1)
+				)
+		end, lists:seq(0,TitleHeight-1,1)),	
+	{_, T1} = erlang:statistics(runtime),
+	{_, T2} = erlang:statistics(wall_clock),
+	?DEBUG("loadMapDataTitlFromFile use time: ~p (~p) ~n ", [T1, T2]),
+	Data = ets:tab2list(Ets),
+	ets:delete(Ets),
+	{ok, Data}.
+
+
+%% --------------------------------------------------------------------
+
+loadMapDataTitlResolv(TitleWidth, TitleHeight, DataBin) ->
+	Ets = ets:new(load_map_data_titl_resolv, [set, private]),
+	erlang:statistics(runtime),
+	erlang:statistics(wall_clock),
+	test(Ets, DataBin, TitleWidth, TitleHeight, 0, 0),
+	{_, T1} = erlang:statistics(runtime),
+	{_, T2} = erlang:statistics(wall_clock),
+	?DEBUG("loadMapDataTitlResolv use time: ~p (~p) ~n ", [T1, T2]),
+	Data = ets:tab2list(Ets),
+	ets:delete(Ets),
+	{ok, Data}.
+
+test(Ets, DataBin, TitleWidth, TitleHeight, X, Y) when X =:= TitleWidth -1 andalso TitleHeight -1 =:= Y ->
+	<< Walk:8, _Bin/binary >> = DataBin,
+	case Walk of
+		0	->	ets:insert(Ets, { {X,Y}, true });
+		_	->  ok
+	end,
+	ok;
+test(Ets, DataBin, TitleWidth, TitleHeight, X, Y) when X =:= TitleWidth -1 ->
+	<< Walk:8, Bin/binary >> = DataBin,
+	case Walk of
+		0	->	ets:insert(Ets, { {X,Y}, true });
+		_	->  ok
+	end,
+	test(Ets, Bin, TitleWidth, TitleHeight, 0, Y+1);
+test(Ets, DataBin, TitleWidth, TitleHeight, X, Y) ->
+	<< Walk:8, Bin/binary >> = DataBin,
+	case Walk of
+		0	->	ets:insert(Ets, { {X,Y}, true });
+		_	->  ok
+	end,
+	test(Ets, Bin, TitleWidth, TitleHeight, X + 1, Y).
+	
+	

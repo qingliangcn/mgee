@@ -1,0 +1,130 @@
+-------------------
+
+http://svn.process-one.net/contribs/trunk/eunit/doc/overview-summary.html
+
+-------------------
+http://www.javaeye.com/wiki/erlang/1457-eunit-use-for-unit-testing
+
+
+使用EUnit进行单元测试
+原创作者: litaocheng   阅读:550次   评论:1条   更新时间:2009-02-03    
+为了写一个好的产品，必定离不开完善的测试。
+
+最近开始筹划项目，因此单元测试必不可少，一定要在开始的时候把测试做好，从下到上才能让产品更加坚固。
+
+我们选择使用EUnit进行单元测试。使用Eunit的好处：减少代码的修改；提高开发速度；有利于接口与实现分离；有利于系统集成；还有测试本身可以作为一种文档。
+
+1，首次从http://support.process-one.net/doc/display/CONTRIBS/EUnit 获取对应的SVN checkout路径，http://svn.process-one.net/contribs/trunk/eunit，通过svn进行下载。
+
+2，将整个eunit目录放到你的erlang安装目录下的lib目录中。也可以使用通过code:add_path/1或者其他编译选项指明eunit的路径，但是不是很方便。
+
+3，在你的module中添加: -include_lib("eunit/include/eunit.hrl"). 这样就引入了eunit的头文件，此时你的module具有了下面的特性：自动的将以"_test"结尾的函数作为测试函数；为你的module添加并导出了test/0函数；为你提供了丰富的test macro。（自动导出test函数，是通过compile指示符的parse_transform选项进行处理）
+
+此时，我们的module已经具有了eunit赋予的一切权利。注意你从svn下载的代码，没有进行编译，你需要进行编译生成beam文件。由于本人是在windows下工作，编译不是很方便，所以我就直接从这里下载了eunit的beam文件，放到eunit/ebin/目录下。
+
+在我们要测试的module中我们加入一个函数：
+Erlang代码
+
+   1. basic_test() ->  
+   2.      ?assert(1 == 1).  
+
+basic_test() ->
+     ?assert(1 == 1).
+
+
+
+好了，编译module，随后运行M:test()，进行单元测试，我们会看到
+Test successful.
+的提示。测试ok。
+
+这里bsic_test/0会在执行test/0的时候调用，我们也可以把basic_test/0写成另一种形式：
+Erlang代码
+
+   1. basic_test_() ->  
+   2.     fun() -> ?assert(1 == 1) end.  
+
+basic_test_() ->
+    fun() -> ?assert(1 == 1) end.
+
+
+
+以"_test_"结尾的函数，在EUnit中称为“test generation function"，测试生成函数，
+它返回一个或一个函数list，EUnit会依次执行每个函数。为了让代码更紧凑简洁，
+我们又有了另一个macro：_test，这样上面的test可以变成这样：
+
+Erlang代码
+
+   1. basic_test_() ->  
+   2.     ?_test(?assert(1 == 1)).  
+
+basic_test_() ->
+    ?_test(?assert(1 == 1)).
+
+
+
+是不是代码少一些了？好的让我们再进一步，我们使用另一个macro：_assert：
+Erlang代码
+
+   1. basic_test_() ->  
+   2.     ?_assert(1 == 1).  
+
+basic_test_() ->
+    ?_assert(1 == 1).
+
+
+
+怎么样，很简单了吧，好的，比如我有一系列的内容要测试，我就可以简单的写成这样：
+Erlang代码
+
+   1. basic_test_() ->  
+   2.     [?_assert(1 == 1),  
+   3.      ?_assert(2 == 2),  
+   4.      ?_assertEqual(3, 3),  
+   5.      ?_assertMatch(4,  4),  
+   6.      ?_assertException(throw, a, throw(a))].  
+
+basic_test_() ->
+    [?_assert(1 == 1),
+     ?_assert(2 == 2),
+     ?_assertEqual(3, 3),
+     ?_assertMatch(4,  4),
+     ?_assertException(throw, a, throw(a))].
+
+
+
+我们非常容易的就测试了某个表达式是否为true，某两个值是否相等assertEqual
+（注：这里使用=:=进行判断，因此assertEqual(3, 3.0)不会测试通过），
+某个表达式是否匹配，是否产生指定的异常等。
+好了，暂时就这些基本的东西，更多的内容查看EUnit的帮助:
+http://svn.process-one.net/contribs/trunk/eunit/doc/overview-summary.html
+
+Update:
+R12B-5中，eunit作为一个标准的lib被加入，eunit中提供了一些有用的Macro，如：
+LET(Var,Arg,Expr)
+等效于 (fun(Var) -> (Expr) end)(Arg)
+用法: L = ?LET(L1, [1, 2, 3], lists:reverse(L1))
+
+IF(Cond,TrueCase,FalseCase)
+用法: G = ?IF(A >= B, A, B)
+
+形如_test()的函数，作为一个test 单元
+形如_test_()的函数作为test generator，其用来产生test单元，其结尾表达式可以为：
+单个形如?_xxx的测试，表示一个test单元
+也可以为一个List（可以为Deep List），List进行flatten后，长度表示test单元数目如下面代码表示五个测试单元:
+
+Erlang代码
+
+   1. basic_test() ->  
+   2.     ?assert([1, 2] = lists:reverse([2, 1]).  
+   3.   
+   4. basic_test_() ->  
+   5.     [?_assert(true),  
+   6.      ?_assertNot(false),  
+   7.      [ ?_assert(1 == 1.0),  
+   8.        ?_assert(true)  
+   9.      ]  
+  10.     ].  
+  
+  
+  ---------------------------------------------------------------------------------
+  

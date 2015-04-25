@@ -1,0 +1,58 @@
+http://cryolite.javaeye.com/blog/192069
+
+
+Erlang的EMakefile文件
+Erlang有个类似Makefile的文件Emakefile负责编译erl程序，说明文档在此 
+
+格式是 
+Erlang代码 
+{Modules, Options}.  
+
+{Modules, Options}.
+
+其中Modules是一个atom，或者是一个atom的列表。 
+这些atom 
+可以是一个模块名，如file1； 
+可以是别的目录中的模块名，如../foo/file3； 
+也可以是通过通配符匹配的一系列模块名，如file*； 
+还可以是上述atom的列表，如['file*', '../foo/file3', 'File4']。 
+
+Options是compiler命令的配置参数，具体参数可以查看文档 
+一个Emakefile的例子 
+Erlang代码 
+{'src/*',    
+    [debug_info,    
+    {i,"include"},   
+    {outdir,"ebin"}   
+    ]}.  
+
+{'src/*', 
+	[debug_info, 
+	{i,"include"},
+	{outdir,"ebin"}
+	]}.
+
+shell命令 
+Shell代码 
+erl -make  
+
+erl -make
+将寻找当前目录下的Emakefile文件，然后根据文件内容build，例如上述例子将当前src目录中的所有模块进行编译，程序中-include 或者 -include_dir指定的相关文件将在include目录中查找，编译好的beam文件输出到ebin目录下。 
+
+make时将查看输出目录下有没有相关的编译文件，如果没有则进行编译； 
+如果有则检查文件时间，比较后决定是否要进一步编译； 
+如果是最新修改的源文件，则进行编译。 
+
+ps： 
+在erl shell中输入命令 
+Erlang shell代码 
+make :all().  
+
+ make :all().
+有同样的功效。如果加上load参数， 
+Erlang shell代码 
+make:all([load]).  
+
+make:all([load]).
+会将重新编译的代码重新转载进erlang，对调试很有帮助。 
+
